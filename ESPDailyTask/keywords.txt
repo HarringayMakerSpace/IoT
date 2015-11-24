@@ -1,0 +1,18 @@
+#######################################
+# Syntax Coloring Map For Bridge
+#######################################
+
+#######################################
+# Class (KEYWORD1)
+#######################################
+
+ESPDailyTask	KEYWORD1	
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+sleep1Day	KEYWORD2
+backToSleep	KEYWORD2
+timeAdjustFromDateHeader	KEYWORD2
+

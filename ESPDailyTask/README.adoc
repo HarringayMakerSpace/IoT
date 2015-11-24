@@ -1,0 +1,10 @@
+= ESPDailyTask Library for ESP8266/Arduino =
+
+A little library to have an ESP8266 deepSleep for one day.
+
+The ESP deepSleep time is an uint32 of microseconds so a maximum of 4,294,967,295, or about 71 minutes per deepSleep. So to sleep for one day requires sleeping for one hour 24 times and keeping track of where its up to in RTC memory. The WiFi radio is switched off for all but the 24th wakeup to save power. The ESP clock seems to run a little slow and with the time taken to wake up, connect, and go to sleep the wake up time can drift by multiple minutes per day resulting in many hours over weeks of operation. To compensate for the drift this can sync with the time from an HTTP response Date header and compensate for the drift to keep the wake up at a set time.
+
+== License ==
+
+The Harringay Maker Space
+License: Apache License v2
