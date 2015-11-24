@@ -10,8 +10,8 @@
 #include <ESP8266WiFi.h>
 #include <ESPDailyTask.h>
 
-const char* ssid = "BTHub5-72W5";
-const char* password = "46d38ec753";
+const char* ssid     = "your-ssid";
+const char* password = "your-password";
 
 // Set this for what time your daily code should run 
 ESPDailyTask dailyTask(11*60 + 15); // 11:15am
