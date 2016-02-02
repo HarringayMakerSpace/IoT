@@ -33,11 +33,11 @@ typedef struct {
 
 rtcStore rtcMem;
 
-// Desired wake up time, in minutes, eg 4:35pm = (16 * 60) + 30
+// Desired wake up time, in seconds, eg 4:35pm = ((16 * 60) + 35) * 60
 int wakeUpTime;
 
-ESPDailyTask::ESPDailyTask(int mins){
-   wakeUpTime = mins;
+ESPDailyTask::ESPDailyTask(int wakeTimeMins){
+   wakeUpTime = wakeTimeMins * 60;
 }
 
 /**
@@ -130,10 +130,11 @@ void ESPDailyTask::timeAdjustFromDateHeader(WiFiClient client) {
                 client.readStringUntil(' ');client.readStringUntil(' ');client.readStringUntil(' ');client.readStringUntil(' ');
                 int hours = client.parseInt();
                 int minutes = client.parseInt();
-                if (hours == 0 && minutes == 0) return; // likely something went wrong
-                Serial.print("Current time ");Serial.print(hours);Serial.print(":");Serial.println(minutes);
-                int currentMins = (hours * 60) + minutes;
-                processCurrentTime(currentMins);
+                int seconds = client.parseInt();
+                Serial.print("Current time ");Serial.print(hours);Serial.print(":");Serial.print(minutes);Serial.print(":");Serial.println(seconds);
+                if (hours == 0 && minutes == 0 && seconds == 0) return; // likely something went wrong
+                int currentSecs = ((hours * 60) + minutes) * 60 + seconds;
+                processCurrentTime(currentSecs);
                 return;
               }
             }
@@ -144,24 +145,38 @@ void ESPDailyTask::timeAdjustFromDateHeader(WiFiClient client) {
   }
 }
 
-void ESPDailyTask::processCurrentTime(int currentMins) {
+void ESPDailyTask::processCurrentTime(int currentSecs) {
     if (firstTime) {
-       if (currentMins > wakeUpTime) {
-          // if its past the wakeUpTime need to sleep for less than 24 hours
-          int tx = (24*60) - currentMins + wakeUpTime;
-          thisSleepTime = (tx % 60) * 60000000;
-          rtcMem.counter = tx / 60;
+
+       int tx;
+       if (currentSecs > wakeUpTime) {
+          // if its past the wakeUpTime need to sleep for the rest of the day then the wakeUpTime
+          tx = ((24*60*60) - currentSecs) + wakeUpTime;
        } else {
-          // if its ealier than the wakeUpTime need to sleep for less than 24 hours
-          int tx = wakeUpTime - currentMins;
-          thisSleepTime = (tx % 60) * 60000000;
-          rtcMem.counter = 24 - (tx / 60) - 1;
+          // if its ealier than the wakeUpTime need to sleep for remaining time to wakeUpTime
+          tx = wakeUpTime - currentSecs;
        }
+
+       thisSleepTime = (tx % 3600) * 1000000;
+       rtcMem.counter = 24 - (tx / 3600) - 1;
+
        Serial.print("First time: thisSleepTime ");Serial.print(thisSleepTime);Serial.print(", currentCounter: ");Serial.println(rtcMem.counter);
+
     } else {
-      int drift = currentMins - wakeUpTime;
-      rtcMem.sleepTime -= (drift * 60000000) / 24;
+
+      // woken up at what should be the wakeUpTime, so any diff from that is clock drift
+      // so adjust the hourly sleep time to compensate
+      int timeDiffSecs = currentSecs - wakeUpTime;
+      int totalNextDaySleepSecs = (24 * 60 * 60) - timeDiffSecs; 
+      int driftAdjustMicros = (timeDiffSecs * 1000000) / 24;
+      int hourlySleepMicros = (((totalNextDaySleepSecs * 100) / 24) * 10000) - driftAdjustMicros;       
+      rtcMem.sleepTime = hourlySleepMicros;
       thisSleepTime = rtcMem.sleepTime;
-      Serial.print("Drift adjust: drift=");Serial.print(drift);Serial.print(", new sleepTime=");Serial.println(rtcMem.sleepTime);
+
+      Serial.print("Daily adjust: timeDiffSecs=");Serial.print(timeDiffSecs);
+      Serial.print(", totalNextDaySleepSecs=");Serial.print(totalNextDaySleepSecs);
+      Serial.print(", driftAdjustMicros=");Serial.print(driftAdjustMicros);
+      Serial.print(", rtcMem.sleepTime=");Serial.print(rtcMem.sleepTime);
+      Serial.println();
     }    
 }
