@@ -12,8 +12,8 @@
  *  GND        GND
  *  VCC        VCC
  *  GPIO15     NSS
- *  GPIO12     MOSI
- *  GPIO13     MIS0
+ *  GPIO13     MOSI
+ *  GPIO12     MIS0
  *  GPIO14     SCK
  *  GPIO5      DIO0
  *  GPIO4      DIO1
@@ -26,15 +26,18 @@
  *  GPIO2 - must be high to boot
  *  GPIO3 - Serial RX
  *  ADC
+ *  On an ESP12e also:
+ *  GPIO10 - Can be used if sketch flashed with DIO mode
+ *  GPIO9 - Can be used if you have a DIO ESP such as a "real" NodeMCU 1.0
  *  
  * Author: Ant Elder
  * License: Apache License v2
  */
-
 #include <ESP8266WiFi.h>
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
+#include <EEPROM.h>
 
 ADC_MODE(ADC_VCC); // enables reading the ESP8266 supply voltage
 
@@ -47,21 +50,47 @@ const lmic_pinmap lmic_pins = {
     .dio = {5, 4, LMIC_UNUSED_PIN},
 };
 
-// LoRaWAN end-device address (DevAddr) see http://thethingsnetwork.org/wiki/AddressSpace
-static const u4_t DEVADDR = 0x03FF0701 ; // <-- Change this address for every node!
-
+// Create these with ttnctl or the TTN Dashboard at https://staging.thethingsnetwork.org/
+// LoRaWAN end-device address
+static const u4_t DEVADDR = 0x762C6511;
+// LoRaWAN NwkSKey, network session key
+static const PROGMEM u1_t NWKSKEY[16] = { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11 };
+// LoRaWAN AppSKey, application session key
+static const u1_t PROGMEM APPSKEY[16] = { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0xD1, 0x11, 0x11, 0x11, 0x11, 0x11 };
+                                                                                                                  
 volatile boolean dio0Triggered;
+
+// The LORAWAN session state is saved in EEPROM
+// Here just the frame sequence number is saved as its ABP with a Single Channel Gateway,
+// See http://forum.thethingsnetwork.org/t/new-backend-how-to-connect/1983/91 
+#define INITED_FLAG 0x12344321 // <<<< Change this to have the frame sequence restart from zero  
+typedef struct {
+  uint32 inited;
+  u4_t seqnoUp;
+} LORA_STATE;
+LORA_STATE loraState;
 
 void setup() {
   Serial.begin(115200); Serial.println();
 
+  EEPROM.begin(sizeof(loraState));
+  EEPROM.get(0, loraState);
+  if (loraState.inited != INITED_FLAG) {
+     loraState.inited = INITED_FLAG;
+     loraState.seqnoUp = 0;
+  }
+
   lmicInit();
-  // LMIC bug? the EV_TXCOMPLETE event seems to takes ages to happen, but DIO0 high indicates TX complete 
+  // the EV_TXCOMPLETE event takes ages to happen, but DIO0 high indicates TX complete 
+  // See https://github.com/matthijskooijman/arduino-lmic/issues/16
   attachInterrupt(digitalPinToInterrupt(lmic_pins.dio[0]), dio0ISR, RISING);
 
-  String vcc = String(ESP.getVcc());   
+  LMIC.seqnoUp = loraState.seqnoUp;
+
+  String vcc = String(ESP.getVcc()); // Needs ESP SDK 1.5.3, see https://github.com/esp8266/Arduino/issues/1961    
   do_send(vcc);
 }
+
 
 // loop runs until the TX Complete event puts the ESP to sleep
 void loop() {
@@ -107,20 +136,16 @@ void onEvent (ev_t ev) {
 }
 
 void goToSleep() {
+
+  loraState.seqnoUp = LMIC.seqnoUp;
+  EEPROM.put(0, loraState);
+  EEPROM.end();
+  Serial.print("loraState.seqnoUp = "); Serial.println(loraState.seqnoUp);    
+
   Serial.print("Up time "); Serial.print(millis());
   Serial.print(", going to sleep for "); Serial.print(SLEEP_SECONDS); Serial.println(" secs");
   ESP.deepSleep(SLEEP_SECONDS*1000000, RF_DISABLED);  
 }
-
-// LoRaWAN NwkSKey, network session key
-// This is the default Semtech key, which is used by the prototype TTN
-// network initially.
-static const PROGMEM u1_t NWKSKEY[16] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C };
-
-// LoRaWAN AppSKey, application session key
-// This is the default Semtech key, which is used by the prototype TTN
-// network initially.
-static const u1_t PROGMEM APPSKEY[16] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C };
 
 void lmicInit() {
   Serial.print("LMIC Init started at "); Serial.print(millis()); Serial.print("...");
@@ -170,7 +195,7 @@ void lmicInit() {
     LMIC_setLinkCheckMode(0);
 
     // Set data rate and transmit power (note: txpow seems to be ignored by the library)
-    LMIC_setDrTxpow(DR_SF7,14);
+    LMIC_setDrTxpow(DR_SF7, 20);
 
   // only use channel 0 for the single channel gateway
   LMIC_disableChannel(1);
