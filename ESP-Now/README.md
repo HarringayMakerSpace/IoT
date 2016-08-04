@@ -7,7 +7,7 @@
 
  It sounds like you could have a battery powered remote sensor node sending readings with ESP-Now.
  From trying this an ESP8266 using deepSleep can wake up, do the ESP-Now send, and 
- go back to deepSleep in abpout 270 milliseconds, so should get great battery life
+ go back to deepSleep in about 270 milliseconds, so should get great battery life
  comparable to using BLE but without all the BLE compexity.
 
  However, presently I haven't got the ESP-Now receiver node (slave) to work reliably while 
