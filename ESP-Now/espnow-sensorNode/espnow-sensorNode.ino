@@ -54,7 +54,7 @@ void setup() {
   esp_now_add_peer(remoteMac, ESP_NOW_ROLE_SLAVE, WIFI_CHANNEL, NULL, 0);
 
   esp_now_register_send_cb([](uint8_t* mac, uint8_t status) {
-    Serial.print("send_cb, status = "); Serial.print(status); // this always shows 1 which should mean fail!? Don't know whats going on there.
+    Serial.print("send_cb, status = "); Serial.print(status); 
     Serial.print(", to mac: "); 
     char macString[50] = {0};
     sprintf(macString,"%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
