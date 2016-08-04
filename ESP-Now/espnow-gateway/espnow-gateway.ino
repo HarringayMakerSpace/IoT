@@ -23,7 +23,7 @@ extern "C" {
 }
 
 const char* ssid = "BTHub5-72W5";
-const char* password = "46d38ec753";
+const char* password = "xxxxxxxxxx";
 
 #define WIFI_CHANNEL 1
 
