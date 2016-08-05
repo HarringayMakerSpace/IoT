@@ -57,6 +57,8 @@ void setup() {
     ESP.restart();
   }
 
+  delay(1); // This delay seems to make it work more reliably???
+
   esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
   esp_now_add_peer(remoteMac, ESP_NOW_ROLE_SLAVE, WIFI_CHANNEL, NULL, 0);
 
