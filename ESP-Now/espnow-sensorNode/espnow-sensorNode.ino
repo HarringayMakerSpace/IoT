@@ -12,7 +12,13 @@
  ESP-Now has the concept of controllers and slaves. AFAICT the controller is the remote
  sensor node and the slave is the always on "gateway" node that listens for sensor node readings. 
 
- **** This skecth is the controller/sensor node ****
+ **** This sketch is the controller/sensor node ****
+
+ *** Note: to compile ESP-Now (with arduino/esp8266 release 2.3.0) need to edit 
+ * ~/Library/Arduino15/packages/esp8266/hardware/esp8266/2.1.0/platform.txt 
+ * Search "compiler.c.elf.libs", and append "-lespnow" at the end of the line. 
+ * See: http://www.esp8266.com/viewtopic.php?p=44161#p44161 
+ ***
 
  Ant Elder
  License: Apache License v2
@@ -23,7 +29,7 @@ extern "C" {
 }
 
 // this is the MAC Address of the remote ESP which this ESP sends its data too
-uint8_t remoteMac[] = {0x5E, 0xCF, 0x7F, 0x5, 0xFD, 0xF0};
+uint8_t remoteMac[] = {0x5C, 0xCF, 0x7F, 0x5, 0xFD, 0xF0};
 
 #define WIFI_CHANNEL 1
 #define SLEEP_TIME 15e6
@@ -43,6 +49,7 @@ void setup() {
   Serial.begin(115200); Serial.println();
 
   WiFi.mode(WIFI_STA); // Station mode for sensor/controller node
+  WiFi.begin();
   Serial.print("This node mac: "); Serial.println(WiFi.macAddress());
 
   if (esp_now_init()!=0) {
@@ -54,7 +61,7 @@ void setup() {
   esp_now_add_peer(remoteMac, ESP_NOW_ROLE_SLAVE, WIFI_CHANNEL, NULL, 0);
 
   esp_now_register_send_cb([](uint8_t* mac, uint8_t status) {
-    Serial.print("send_cb, status = "); Serial.print(status); // this always shows 1 which should mean fail!? Don't know whats going on there.
+    Serial.print("send_cb, status = "); Serial.print(status); 
     Serial.print(", to mac: "); 
     char macString[50] = {0};
     sprintf(macString,"%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

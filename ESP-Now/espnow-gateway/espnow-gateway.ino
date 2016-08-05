@@ -10,7 +10,13 @@
  as long to connect to WiFi and send a sensor reading.
  
  ESP-Now has the concept of controllers and slaves. AFAICT the controller is the remote
- sensor node and the slave is the always on "gaeway" node that listens for sensor node readings. 
+ sensor node and the slave is the always on "gateway" node that listens for sensor node readings. 
+
+ *** Note: to compile ESP-Now (with arduino/esp8266 release 2.3.0) need to edit 
+ * ~/Library/Arduino15/packages/esp8266/hardware/esp8266/2.1.0/platform.txt 
+ * Search "compiler.c.elf.libs", and append "-lespnow" at the end of the line. 
+ * See: http://www.esp8266.com/viewtopic.php?p=44161#p44161 
+ ***
 
  **** This skecth is the slave/gateway node ****
 
@@ -23,7 +29,7 @@ extern "C" {
 }
 
 const char* ssid = "BTHub5-72W5";
-const char* password = "46d38ec753";
+const char* password = "xxxxxxxxxx";
 
 #define WIFI_CHANNEL 1
 
@@ -45,7 +51,13 @@ void setup() {
     ESP.restart();
   }
 
-  esp_now_set_self_role(ESP_NOW_ROLE_MAX);
+  Serial.print("This node AP mac: "); Serial.print(WiFi.softAPmacAddress());
+  Serial.print(", STA mac: "); Serial.println(WiFi.macAddress());
+
+  // Note: When ESP8266 is in soft-AP+station mode, this will communicate through station interface
+  // if it is in slave role, and communicate through soft-AP interface if it is in controller role,
+  // so you need to make sure the remote nodes use the correct MAC address being used by this gateway. 
+  esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
 
   esp_now_register_recv_cb([](uint8_t *mac, uint8_t *data, uint8_t len) {
     Serial.print("recv_cb, from mac: ");
@@ -69,13 +81,8 @@ void getReading(uint8_t *data, uint8_t len) {
 
 void initWifi() {
 
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("MyGateway", "12345678", WIFI_CHANNEL, 1);
-  Serial.print("This node AP mac: "); Serial.println(WiFi.softAPmacAddress());
-
-// WIFI_AP_STA mode doesn;t seem to work and misses most ESP-Now messages
-// See See http://bbs.espressif.com/viewtopic.php?f=7&t=2514&p=8285
-return; 
 
   Serial.print("Connecting to "); Serial.print(ssid);
   if (strcmp (WiFi.SSID().c_str(), ssid) != 0) {
@@ -90,7 +97,7 @@ return;
   Serial.println("");
   if (retries < 1) {
      Serial.print("*** WiFi connection failed");  
-//     goToSleep();
+     ESP.restart();
   }
 
   Serial.print("WiFi connected, IP address: "); Serial.println(WiFi.localIP());
