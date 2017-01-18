@@ -1,7 +1,7 @@
 /* 
  *  Bootstrap OTA for ESP8266 
  *  
- *  Starts up using WPS to auto configure Wifi network, if WPS unsuccesful then try WifiManager.
+ *  Starts up using WPS to auto configure Wifi network, if WPS unsuccessful then try WifiManager.
  *  Once connected to Wifi it runs Over-The-Air (OTA) to enable remote program uploads to add further function. 
  *  
  *  For WPS, press the WPS button on the WiFi Access Point and then within 2 minutes power on the ESP8266 running 
@@ -23,16 +23,28 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h> 
 
+#include <Ticker.h>
+
+#define LED_PIN 2 // gpio2 for ESP-12, gpio1 for ESP-01, gpio12 for Sonoff
+
 const String THIS_NAME = String("ESP-") + ESP.getChipId();
 
 int heartBeatInterval = 15000; // 15 seconds
+Ticker ledBlinker;
+
 
 void setup(void) {
     Serial.begin(115200); Serial.println();
     Serial.print(THIS_NAME); Serial.print(__DATE__);Serial.println(__TIME__);
 
+    pinMode(LED_PIN, OUTPUT);
+    ledBlinker.attach(0.2, ledBlink); // start with fast blink to show Wifi connecting
+
     initWifi();
     Serial.print("WiFi connected to "); Serial.print(WiFi.SSID()); Serial.print(", IP address: "); Serial.println(WiFi.localIP());
+
+    ledBlinker.detach();
+    digitalWrite(LED_PIN, LOW);
 
     initOTA();
 }
@@ -44,6 +56,9 @@ void loop() {
 
     if (millis() - lastHeartBeat > heartBeatInterval) {
       Serial.println("loop running");
+      digitalWrite(LED_PIN, LOW);
+      delay(50);
+      digitalWrite(LED_PIN, HIGH);
       lastHeartBeat = millis();
     }
 }
@@ -76,6 +91,7 @@ void initWifi() {
   }
 
   // still no connection so try WifiManager
+  ledBlinker.attach(0.8, ledBlink); // slow blink led to show in Wifi AP mode
   WiFiManager wifiManager;
   wifiManager.setTimeout(240);
   if(!wifiManager.autoConnect(THIS_NAME.c_str())) {
@@ -106,5 +122,9 @@ void initOTA() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
+}
+
+void ledBlink() {
+  digitalWrite(LED_PIN, ! digitalRead(LED_PIN));
 }
 
