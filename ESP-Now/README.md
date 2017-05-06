@@ -1,3 +1,5 @@
+*UPDATE:* some more recent ESP-Now code is [here](https://github.com/HarringayMakerSpace/ESP-Now).
+
 # ESP-Now testing
 
  Trying out ESP-Now 
